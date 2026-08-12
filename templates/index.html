@@ -1,0 +1,95 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Meeting Memory Agent</title>
+<style>
+  * { box-sizing: border-box; }
+  body {
+    font-family: -apple-system, Segoe UI, Roboto, sans-serif;
+    max-width: 720px; margin: 40px auto; padding: 0 20px;
+    background: #0f1115; color: #e8e8ea;
+  }
+  h1 { font-size: 1.4rem; margin-bottom: 4px; }
+  p.sub { color: #9a9aa5; margin-top: 0; }
+  select, textarea, button {
+    width: 100%; padding: 10px; margin: 6px 0 14px 0;
+    border-radius: 8px; border: 1px solid #2a2d36;
+    background: #1a1d24; color: #e8e8ea; font-size: 0.95rem;
+  }
+  textarea { min-height: 70px; resize: vertical; }
+  button {
+    background: #5b6bff; border: none; cursor: pointer; font-weight: 600;
+  }
+  button:hover { background: #4a59e6; }
+  .row { display: flex; gap: 10px; }
+  .row > div { flex: 1; }
+  .card {
+    background: #161920; border: 1px solid #2a2d36; border-radius: 10px;
+    padding: 16px; margin-top: 14px; white-space: pre-wrap; line-height: 1.5;
+  }
+  .memories {
+    font-size: 0.82rem; color: #9a9aa5; margin-top: 10px;
+    border-top: 1px dashed #2a2d36; padding-top: 8px;
+  }
+  .memories div { margin: 3px 0; }
+  .section-label { font-weight: 700; margin-top: 24px; color: #8f9dff; }
+</style>
+</head>
+<body>
+  <h1>🧠 Meeting Memory Agent</h1>
+  <p class="sub">Remembers every client interaction using Hindsight, so it can brief you before the next meeting.</p>
+
+  <label>Client</label>
+  <select id="clientSelect">
+    {% for id, name in clients.items() %}
+      <option value="{{ id }}">{{ name }}</option>
+    {% endfor %}
+  </select>
+
+  <div class="section-label">1. Log a meeting note (RETAIN)</div>
+  <textarea id="noteInput" placeholder="e.g. John raised concerns about pricing again and asked about SSO support."></textarea>
+  <button onclick="logNote()">Save to memory</button>
+  <div id="logResult"></div>
+
+  <div class="section-label">2. Ask the agent (RECALL + LLM)</div>
+  <textarea id="questionInput" placeholder="e.g. I have a meeting with John tomorrow, how should I prepare?"></textarea>
+  <button onclick="askAgent()">Ask</button>
+  <div id="askResult"></div>
+
+<script>
+async function logNote() {
+  const bank_id = document.getElementById('clientSelect').value;
+  const note = document.getElementById('noteInput').value.trim();
+  if (!note) return;
+  const res = await fetch('/api/log', {
+    method: 'POST', headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({bank_id, note})
+  });
+  const data = await res.json();
+  document.getElementById('logResult').innerHTML =
+    `<div class="card">✅ Stored in memory for this client.</div>`;
+  document.getElementById('noteInput').value = '';
+}
+
+async function askAgent() {
+  const bank_id = document.getElementById('clientSelect').value;
+  const question = document.getElementById('questionInput').value.trim();
+  if (!question) return;
+  const box = document.getElementById('askResult');
+  box.innerHTML = `<div class="card">Thinking…</div>`;
+  const res = await fetch('/api/ask', {
+    method: 'POST', headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({bank_id, question})
+  });
+  const data = await res.json();
+  let mem = '';
+  if (data.memories_used && data.memories_used.length) {
+    mem = `<div class="memories"><strong>Memories used:</strong>` +
+      data.memories_used.map(m => `<div>• ${m}</div>`).join('') + `</div>`;
+  }
+  box.innerHTML = `<div class="card">${data.answer}${mem}</div>`;
+}
+</script>
+</body>
+</html>
